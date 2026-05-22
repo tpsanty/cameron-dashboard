@@ -15,39 +15,68 @@ class TradovateClient {
     this.token = null;
     this.tokenExpiry = null;
     this.contractCache = {};
+    console.log(`[tradovate] env=${this.env}  endpoint=${this.baseUrl}`);
   }
 
   async authenticate() {
     const username = process.env.TRADOVATE_USERNAME;
-    const password = process.env.TRADOVATE_PASSWORD;
+    const password = process.env.TRADOVATE_PASSWORD || '';
 
-    if (!username || !password) {
-      throw new Error('TRADOVATE_USERNAME and TRADOVATE_PASSWORD must be set in .env');
+    if (!username) {
+      throw new Error('TRADOVATE_USERNAME is not set in .env');
     }
 
-    const res = await axios.post(`${this.baseUrl}/auth/accesstokenrequest`, {
-      name: username,
-      password: password,
-      appId: 'CameronDashboard',
-      appVersion: '1.0',
-      cid: CID,
-      sec: SECRET,
-      deviceId: DEVICE_ID
-    });
+    // Google OAuth accounts (name starts with "Google:") don't use a
+    // traditional Tradovate password. Cameron must go to:
+    //   tradovate.com → Settings → Security → Set Password
+    // and put that password in TRADOVATE_PASSWORD.
+    const isGoogleAccount = username.startsWith('Google:');
+    if (isGoogleAccount && !password) {
+      console.warn('[auth] Google OAuth account detected with no password.');
+      console.warn('[auth] Visit tradovate.com → Settings → Security → Set Password');
+      console.warn('[auth] then add that password to the TRADOVATE_PASSWORD env var.');
+    }
+
+    console.log(`[auth] POST ${this.baseUrl}/auth/accesstokenrequest`);
+    console.log(`[auth] name="${username}"  isGoogleAccount=${isGoogleAccount}  hasPassword=${!!password}`);
+
+    let res;
+    try {
+      res = await axios.post(`${this.baseUrl}/auth/accesstokenrequest`, {
+        name: username,
+        password,
+        appId: 'CameronDashboard',
+        appVersion: '1.0',
+        cid: CID,
+        sec: SECRET,
+        deviceId: DEVICE_ID
+      });
+    } catch (err) {
+      // Axios throws on 4xx/5xx — extract Tradovate's error body
+      const status = err.response?.status;
+      const body   = err.response?.data;
+      console.error(`[auth] HTTP ${status} from Tradovate:`, JSON.stringify(body));
+      const msg = body?.errorText || body?.error || body?.message || err.message;
+      throw new Error(`Tradovate auth failed (HTTP ${status}): ${msg}`);
+    }
 
     const data = res.data;
+    // Log full response with tokens redacted
+    const redacted = { ...data, accessToken: data.accessToken ? '[redacted]' : undefined, mdAccessToken: data.mdAccessToken ? '[redacted]' : undefined };
+    console.log('[auth] Response:', JSON.stringify(redacted));
 
     if (data['p-ticket']) {
-      throw new Error('Two-factor authentication required. Please complete 2FA on your Tradovate account.');
+      throw new Error('Two-factor authentication is required — complete 2FA at tradovate.com then retry.');
     }
 
     if (!data.accessToken) {
-      throw new Error(data.errorText || 'Authentication failed');
+      console.error('[auth] No access token. Full response:', JSON.stringify(data));
+      throw new Error(data.errorText || data.error || 'Authentication failed — check TRADOVATE_USERNAME / TRADOVATE_PASSWORD');
     }
 
     this.token = data.accessToken;
-    // Tokens typically expire in 24h; refresh 1h early
     this.tokenExpiry = Date.now() + 23 * 60 * 60 * 1000;
+    console.log(`[auth] Authenticated as "${username}" (token valid 23h)`);
     return data;
   }
 
