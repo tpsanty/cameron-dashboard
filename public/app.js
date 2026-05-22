@@ -428,7 +428,7 @@ async function fetchDashboard() {
     if (accEl && data.account?.name) accEl.textContent = data.account.name;
 
     // Env badge
-    const env = (data.account?.env) || (location.hostname.includes('live') ? 'live' : 'demo');
+    const env = data.env || 'demo';
     const badge = document.getElementById('envBadge');
     const footerEnv = document.getElementById('footerEnv');
     if (badge) { badge.textContent = env.toUpperCase(); badge.className = `env-badge ${env}`; }

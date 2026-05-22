@@ -89,6 +89,7 @@ app.get('/api/dashboard', async (req, res) => {
       openPositions,
       recentTrades: stats.recentTrades,
       account: balanceInfo,
+      env: process.env.TRADOVATE_ENV || 'demo',
       lastUpdated: new Date().toISOString()
     });
   } catch (err) {
