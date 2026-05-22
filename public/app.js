@@ -1,0 +1,471 @@
+'use strict';
+
+// ── Config ─────────────────────────────────────────────────────────────────
+const REFRESH_INTERVAL = 60; // seconds
+
+// ── State ──────────────────────────────────────────────────────────────────
+let winLossChart = null;
+let pnlChart     = null;
+let refreshTimeout  = null;
+let countdownHandle = null;
+let isLoading = false;
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function fmt(val, decimals = 2) {
+  if (val === null || val === undefined || val === Infinity || val === -Infinity) return '—';
+  const n = Number(val);
+  if (isNaN(n)) return '—';
+  const abs = Math.abs(n).toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  });
+  return n >= 0 ? `+$${abs}` : `-$${abs}`;
+}
+
+function pct(val) {
+  if (val === null || val === undefined) return '—';
+  return `${Number(val).toFixed(1)}%`;
+}
+
+function colorClass(val) {
+  const n = Number(val);
+  if (n > 0) return 'green';
+  if (n < 0) return 'red';
+  return 'muted';
+}
+
+function setEl(id, text, cls) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text;
+  if (cls !== undefined) el.className = `stat-value ${cls}`;
+}
+
+function formatDate(isoStr) {
+  const d = new Date(isoStr);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatTime(isoStr) {
+  const d = new Date(isoStr);
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+// ── Status / Error UI ──────────────────────────────────────────────────────
+function setStatus(state) {
+  const dot = document.getElementById('statusDot');
+  if (dot) dot.className = `status-dot ${state}`;
+}
+
+function showError(msg) {
+  const banner = document.getElementById('errorBanner');
+  const text   = document.getElementById('errorText');
+  if (banner) banner.classList.add('visible');
+  if (text) text.textContent = msg;
+}
+
+function hideError() {
+  const banner = document.getElementById('errorBanner');
+  if (banner) banner.classList.remove('visible');
+}
+
+function setRefreshBtnLoading(loading) {
+  const btn = document.getElementById('refreshBtn');
+  if (btn) btn.classList.toggle('loading', loading);
+}
+
+// ── Countdown ──────────────────────────────────────────────────────────────
+function startCountdown() {
+  if (countdownHandle) clearInterval(countdownHandle);
+  let secs = REFRESH_INTERVAL;
+  const el = document.getElementById('countdown');
+  const update = () => { if (el) el.textContent = secs; };
+  update();
+  countdownHandle = setInterval(() => {
+    secs = Math.max(0, secs - 1);
+    update();
+  }, 1000);
+}
+
+// ── Render: Stats ──────────────────────────────────────────────────────────
+function renderStats(s) {
+  setEl('statTotalPnl',    fmt(s.totalPnl),     colorClass(s.totalPnl));
+  setEl('statWinRate',     pct(s.winRate),       s.winRate >= 50 ? 'green' : s.winRate > 0 ? 'neutral' : 'red');
+  setEl('statRR',          s.riskReward ? `${s.riskReward}:1` : '—', s.riskReward >= 1 ? 'green' : s.riskReward > 0 ? 'red' : 'muted');
+  setEl('statTotalTrades', s.totalTrades || 0,  'neutral');
+  setEl('statBest',        fmt(s.bestTrade),     colorClass(s.bestTrade));
+  setEl('statWorst',       fmt(s.worstTrade),    colorClass(s.worstTrade));
+  setEl('statWins',        s.wins || 0,          'green');
+  setEl('statLosses',      s.losses || 0,        'red');
+  setEl('statAvgWin',      fmt(s.avgWin),        colorClass(s.avgWin));
+  setEl('statAvgLoss',     fmt(s.avgLoss),       colorClass(s.avgLoss));
+
+  // Donut center label
+  const pctEl = document.getElementById('donutPct');
+  if (pctEl) {
+    pctEl.textContent = pct(s.winRate);
+    pctEl.style.color = s.winRate >= 50 ? 'var(--green)' : 'var(--red)';
+  }
+}
+
+// ── Render: Calendar ───────────────────────────────────────────────────────
+function renderCalendar(dailyPnl) {
+  const container = document.getElementById('calendar');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const today = new Date();
+  const values = Object.values(dailyPnl);
+  const maxAbs = values.length ? Math.max(...values.map(Math.abs), 1) : 1;
+
+  // Build 3 months ending with this month
+  for (let offset = 2; offset >= 0; offset--) {
+    const refDate  = new Date(today.getFullYear(), today.getMonth() - offset, 1);
+    const year     = refDate.getFullYear();
+    const month    = refDate.getMonth();
+    const monthLabel = refDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDow    = new Date(year, month, 1).getDay(); // 0=Sun
+
+    const monthWrap = document.createElement('div');
+    monthWrap.className = 'cal-month fade-in';
+
+    const title = document.createElement('div');
+    title.className = 'cal-month-title';
+    title.textContent = monthLabel;
+    monthWrap.appendChild(title);
+
+    const grid = document.createElement('div');
+    grid.className = 'cal-grid';
+
+    // Day-of-week headers
+    ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => {
+      const h = document.createElement('div');
+      h.className = 'cal-header';
+      h.textContent = d;
+      grid.appendChild(h);
+    });
+
+    // Empty leading cells
+    for (let i = 0; i < firstDow; i++) {
+      const blank = document.createElement('div');
+      blank.className = 'cal-day empty-day';
+      grid.appendChild(blank);
+    }
+
+    // Day cells
+    for (let day = 1; day <= daysInMonth; day++) {
+      const mm   = String(month + 1).padStart(2, '0');
+      const dd   = String(day).padStart(2, '0');
+      const key  = `${year}-${mm}-${dd}`;
+      const pnl  = dailyPnl[key];
+      const isFuture = new Date(year, month, day) > today;
+
+      const cell = document.createElement('div');
+      cell.className = 'cal-day' + (isFuture ? ' future' : '');
+
+      const numSpan = document.createElement('span');
+      numSpan.className = 'cal-day-num';
+      numSpan.textContent = day;
+      cell.appendChild(numSpan);
+
+      if (pnl !== undefined && !isFuture) {
+        const ratio   = Math.min(Math.abs(pnl) / maxAbs, 1);
+        const alpha   = 0.18 + ratio * 0.72;
+        const isGreen = pnl >= 0;
+
+        cell.style.backgroundColor = isGreen
+          ? `rgba(0, 200, 83, ${alpha})`
+          : `rgba(255, 61, 61, ${alpha})`;
+        cell.style.borderColor = isGreen
+          ? `rgba(0, 200, 83, ${Math.min(alpha + 0.1, 0.5)})`
+          : `rgba(255, 61, 61, ${Math.min(alpha + 0.1, 0.5)})`;
+
+        const pnlSpan = document.createElement('span');
+        pnlSpan.className = 'cal-pnl';
+        pnlSpan.style.color = isGreen
+          ? (alpha > 0.6 ? '#ffffff' : 'var(--green)')
+          : (alpha > 0.6 ? '#ffffff' : 'var(--red)');
+        pnlSpan.textContent = fmt(pnl);
+        cell.appendChild(pnlSpan);
+
+        cell.title = `${key}: ${fmt(pnl)}`;
+      }
+
+      grid.appendChild(cell);
+    }
+
+    monthWrap.appendChild(grid);
+    container.appendChild(monthWrap);
+  }
+}
+
+// ── Render: Charts ─────────────────────────────────────────────────────────
+const CHART_DEFAULTS = {
+  color: '#666',
+  font: { family: "'Inter', system-ui, sans-serif", size: 11 }
+};
+
+function renderWinLossChart(stats) {
+  const ctx = document.getElementById('winLossChart');
+  if (!ctx) return;
+  if (winLossChart) { winLossChart.destroy(); winLossChart = null; }
+
+  const wins   = stats.wins   || 0;
+  const losses = stats.losses || 0;
+  const be     = stats.breakeven || 0;
+  const total  = wins + losses + be;
+
+  winLossChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Wins', 'Losses', 'Breakeven'],
+      datasets: [{
+        data: total > 0 ? [wins, losses, be] : [1, 0, 0],
+        backgroundColor: total > 0
+          ? ['#00c853', '#ff3d3d', '#2a2a3a']
+          : ['#1e1e2e'],
+        borderWidth: 0,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '68%',
+      animation: { duration: 400 },
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            color: '#6b7280',
+            padding: 10,
+            font: { size: 11 },
+            boxWidth: 10,
+            boxHeight: 10,
+            usePointStyle: true,
+            pointStyle: 'rect'
+          }
+        },
+        tooltip: {
+          backgroundColor: '#111118',
+          borderColor: '#1e1e2e',
+          borderWidth: 1,
+          titleColor: '#9ca3af',
+          bodyColor: '#e8eaf0',
+          callbacks: {
+            label: ctx => `  ${ctx.label}: ${ctx.parsed}`
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderPnlChart(dailyPnl) {
+  const ctx = document.getElementById('pnlChart');
+  if (!ctx) return;
+  if (pnlChart) { pnlChart.destroy(); pnlChart = null; }
+
+  const sorted = Object.entries(dailyPnl || {})
+    .sort(([a], [b]) => a.localeCompare(b));
+
+  const labels = [];
+  const values = [];
+  let cumulative = 0;
+  for (const [date, pnl] of sorted) {
+    cumulative += pnl;
+    labels.push(date);
+    values.push(Math.round(cumulative * 100) / 100);
+  }
+
+  if (labels.length === 0) {
+    labels.push('No data');
+    values.push(0);
+  }
+
+  const finalVal  = values[values.length - 1] || 0;
+  const lineColor = finalVal >= 0 ? '#00c853' : '#ff3d3d';
+  const fillColor = finalVal >= 0 ? 'rgba(0,200,83,0.08)' : 'rgba(255,61,61,0.08)';
+
+  pnlChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Cumulative P&L',
+        data: values,
+        borderColor: lineColor,
+        backgroundColor: fillColor,
+        fill: true,
+        tension: 0.35,
+        pointRadius: labels.length > 40 ? 0 : 3,
+        pointHoverRadius: 5,
+        pointBackgroundColor: lineColor,
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 400 },
+      interaction: { intersect: false, mode: 'index' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#111118',
+          borderColor: '#1e1e2e',
+          borderWidth: 1,
+          titleColor: '#9ca3af',
+          bodyColor: '#e8eaf0',
+          callbacks: {
+            label: ctx => `  Cumulative: ${fmt(ctx.parsed.y)}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#4b5563', maxTicksLimit: 7, font: { size: 10 } },
+          grid:  { color: 'rgba(255,255,255,0.04)' }
+        },
+        y: {
+          ticks: {
+            color: '#4b5563',
+            font: { size: 10 },
+            callback: v => {
+              const abs = Math.abs(v);
+              const s = abs >= 1000 ? `$${(abs / 1000).toFixed(1)}k` : `$${abs}`;
+              return v < 0 ? `-${s}` : `+${s}`;
+            }
+          },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        }
+      }
+    }
+  });
+}
+
+// ── Render: Positions ──────────────────────────────────────────────────────
+function renderPositions(positions) {
+  const tbody = document.getElementById('positionsBody');
+  const count = document.getElementById('posCount');
+  if (!tbody) return;
+  if (count) count.textContent = positions.length;
+
+  if (!positions.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty-row">No open positions</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = positions.map(p => `
+    <tr class="fade-in">
+      <td class="symbol">${escHtml(p.symbol)}</td>
+      <td><span class="badge-side ${p.side.toLowerCase()}">${escHtml(p.side)}</span></td>
+      <td>${p.qty}</td>
+      <td class="${colorClass(p.openPnl)}">${fmt(p.openPnl)}</td>
+    </tr>
+  `).join('');
+}
+
+// ── Render: Trades ─────────────────────────────────────────────────────────
+function renderTrades(trades) {
+  const tbody = document.getElementById('tradesBody');
+  const count = document.getElementById('tradesCount');
+  if (!tbody) return;
+  if (count) count.textContent = trades.length;
+
+  if (!trades.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-row">No trades found</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = trades.map(t => `
+    <tr class="fade-in">
+      <td>${escHtml(formatDate(t.timestamp))}</td>
+      <td class="time">${escHtml(formatTime(t.timestamp))}</td>
+      <td class="symbol">${escHtml(t.symbol)}</td>
+      <td>${t.qty}</td>
+      <td class="${colorClass(t.pnl)}">${fmt(t.pnl)}</td>
+    </tr>
+  `).join('');
+}
+
+// ── XSS guard ─────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Main Fetch ─────────────────────────────────────────────────────────────
+async function fetchDashboard() {
+  if (isLoading) return;
+  isLoading = true;
+  setStatus('loading');
+  setRefreshBtnLoading(true);
+
+  try {
+    const res  = await fetch('/api/dashboard');
+    const data = await res.json();
+
+    if (!res.ok) {
+      showError(data.error || 'Failed to load dashboard data.');
+      setStatus('error');
+      return;
+    }
+
+    hideError();
+
+    renderStats(data.stats);
+    renderCalendar(data.stats.dailyPnl || {});
+    renderWinLossChart(data.stats);
+    renderPnlChart(data.stats.dailyPnl || {});
+    renderPositions(data.openPositions || []);
+    renderTrades(data.recentTrades || []);
+
+    // Header info
+    const accEl = document.getElementById('accountName');
+    if (accEl && data.account?.name) accEl.textContent = data.account.name;
+
+    // Env badge
+    const env = (data.account?.env) || (location.hostname.includes('live') ? 'live' : 'demo');
+    const badge = document.getElementById('envBadge');
+    const footerEnv = document.getElementById('footerEnv');
+    if (badge) { badge.textContent = env.toUpperCase(); badge.className = `env-badge ${env}`; }
+    if (footerEnv) footerEnv.textContent = env;
+
+    setStatus('ok');
+    startCountdown();
+
+  } catch (err) {
+    showError('Cannot reach the dashboard server. Is it running?');
+    setStatus('error');
+    console.error('[dashboard]', err);
+  } finally {
+    isLoading = false;
+    setRefreshBtnLoading(false);
+  }
+}
+
+function scheduleNext() {
+  if (refreshTimeout) clearTimeout(refreshTimeout);
+  refreshTimeout = setTimeout(async () => {
+    await fetchDashboard();
+    scheduleNext();
+  }, REFRESH_INTERVAL * 1000);
+}
+
+function manualRefresh() {
+  if (refreshTimeout) clearTimeout(refreshTimeout);
+  if (countdownHandle) clearInterval(countdownHandle);
+  fetchDashboard().then(scheduleNext);
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+(async function init() {
+  Chart.defaults.color = CHART_DEFAULTS.color;
+  Chart.defaults.font  = CHART_DEFAULTS.font;
+
+  await fetchDashboard();
+  scheduleNext();
+})();
