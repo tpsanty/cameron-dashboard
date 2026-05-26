@@ -47,11 +47,25 @@ app.get('/api/auth/status', async (req, res) => {
 // Core dashboard data
 app.get('/api/dashboard', async (req, res) => {
   try {
-    const [accounts, fills, positions] = await Promise.all([
+    const [accounts, rawFills, positions] = await Promise.all([
       client.getAccounts(),
       client.getFills(),
       client.getPositions()
     ]);
+
+    // Also pull fills scoped to the primary account (catches any the list endpoint misses)
+    let acctFills = [];
+    if (accounts.length > 0) {
+      try { acctFills = await client.getFillsByAccount(accounts[0].id); } catch (_) {}
+    }
+
+    // Merge fresh fills with the on-disk cache so historical days survive API resets
+    const fillCache = loadFillCache();
+    [...rawFills, ...acctFills].forEach(f => {
+      if (f.id != null) fillCache[String(f.id)] = f;
+    });
+    saveFillCache(fillCache);
+    const fills = Object.values(fillCache);
 
     // Fetch contract details for all fills
     const contractIds = [...new Set(fills.map(f => f.contractId).filter(Boolean))];
