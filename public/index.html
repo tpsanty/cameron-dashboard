@@ -99,7 +99,19 @@
 
       <div class="card cal-card">
         <div class="card-header">
-          <h2 class="card-title">P&amp;L Calendar</h2>
+          <div class="cal-nav">
+            <button class="cal-nav-btn" id="calPrevBtn" onclick="calNavPrev()" title="Previous month">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <polyline points="9,2 4,7 9,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <span class="card-title" id="calMonthLabel">—</span>
+            <button class="cal-nav-btn" id="calNextBtn" onclick="calNavNext()" title="Next month">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <polyline points="5,2 10,7 5,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
           <div class="cal-legend">
             <span class="leg-dot green-dot"></span><span>Profit</span>
             <span class="leg-dot gray-dot"></span><span>Breakeven</span>
