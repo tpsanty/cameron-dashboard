@@ -200,41 +200,48 @@ function drawCalendarMonth() {
     const cell = document.createElement('div');
     cell.className = 'cal-day' + (isFuture ? ' future' : '');
 
-    const numSpan = document.createElement('span');
-    numSpan.className = 'cal-day-num';
-    numSpan.textContent = day;
-    cell.appendChild(numSpan);
+    // Three fixed slots: top (day number), middle (PnL), bottom (trade count)
+    const numSpan    = document.createElement('span');
+    const pnlSpan    = document.createElement('span');
+    const tradesSpan = document.createElement('span');
+    numSpan.className    = 'cal-day-num';
+    pnlSpan.className    = 'cal-pnl';
+    tradesSpan.className = 'cal-trades';
+    numSpan.textContent  = day;
 
     if (pnl !== undefined && !isFuture) {
       const isBreakeven = Math.abs(pnl) <= BREAKEVEN_THRESHOLD;
-      const pnlSpan = document.createElement('span');
-      pnlSpan.className = 'cal-pnl';
+      const tc = calTradesByDay[key];
 
       if (isBreakeven) {
-        cell.style.backgroundColor = 'rgba(100, 110, 140, 0.22)';
-        cell.style.borderColor     = 'rgba(100, 110, 140, 0.38)';
-        pnlSpan.style.color        = 'var(--text-2)';
+        cell.style.backgroundColor = 'rgba(59, 130, 246, 0.22)';
+        cell.style.borderColor     = 'rgba(59, 130, 246, 0.40)';
+        pnlSpan.style.color        = '#93c5fd';
+        tradesSpan.style.color     = 'rgba(147, 197, 253, 0.65)';
       } else {
         const ratio   = Math.min(Math.abs(pnl) / maxAbs, 1);
-        const alpha   = 0.18 + ratio * 0.72;
+        const alpha   = 0.20 + ratio * 0.70;
         const isGreen = pnl > 0;
+        const bright  = alpha > 0.55;
 
         cell.style.backgroundColor = isGreen
           ? `rgba(0, 200, 83, ${alpha})`
           : `rgba(255, 61, 61, ${alpha})`;
         cell.style.borderColor = isGreen
-          ? `rgba(0, 200, 83, ${Math.min(alpha + 0.1, 0.5)})`
-          : `rgba(255, 61, 61, ${Math.min(alpha + 0.1, 0.5)})`;
-        pnlSpan.style.color = isGreen
-          ? (alpha > 0.6 ? '#ffffff' : 'var(--green)')
-          : (alpha > 0.6 ? '#ffffff' : 'var(--red)');
+          ? `rgba(0, 200, 83, ${Math.min(alpha + 0.12, 0.55)})`
+          : `rgba(255, 61, 61, ${Math.min(alpha + 0.12, 0.55)})`;
+        pnlSpan.style.color    = bright ? '#ffffff' : (isGreen ? 'var(--green)' : 'var(--red)');
+        tradesSpan.style.color = bright ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.40)';
       }
 
-      pnlSpan.textContent = fmt(pnl);
-      cell.appendChild(pnlSpan);
-      cell.title = `${key}: ${fmt(pnl)}`;
+      pnlSpan.textContent    = fmtCal(pnl);
+      tradesSpan.textContent = tc ? (tc === 1 ? '1 trade' : `${tc} trades`) : '';
+      cell.title = `${key}: ${fmt(pnl)}${tc ? ` · ${tc} trade${tc !== 1 ? 's' : ''}` : ''}`;
     }
 
+    cell.appendChild(numSpan);
+    cell.appendChild(pnlSpan);
+    cell.appendChild(tradesSpan);
     grid.appendChild(cell);
   }
 
