@@ -168,7 +168,12 @@ app.get('/api/calendar', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Cameron Dashboard running on http://localhost:${PORT}`);
-  console.log(`Tradovate environment: ${process.env.TRADOVATE_ENV || 'demo'}`);
+init().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Cameron Dashboard running on http://localhost:${PORT}`);
+    console.log(`Tradovate environment: ${process.env.TRADOVATE_ENV || 'demo'}`);
+  });
+}).catch(err => {
+  console.error('Failed to initialize database:', err.message);
+  process.exit(1);
 });
