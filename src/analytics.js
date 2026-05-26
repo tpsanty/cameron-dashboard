@@ -1,5 +1,40 @@
+// Hard-coded dollar-per-point values for common futures contracts.
+// Micro contracts come before their full-size counterparts so the
+// startsWith() loop always matches the most-specific prefix first.
+// This overrides whatever tickSize/tickValue the API returns, ensuring
+// MNQ is never inflated to NQ values (or any other mis-match).
+const POINT_VALUES = [
+  ['MNQ', 2    ],  // Micro E-mini Nasdaq-100
+  ['NQ',  20   ],  // E-mini Nasdaq-100
+  ['MES', 5    ],  // Micro E-mini S&P 500
+  ['ES',  50   ],  // E-mini S&P 500
+  ['M2K', 5    ],  // Micro E-mini Russell 2000
+  ['RTY', 50   ],  // E-mini Russell 2000
+  ['MYM', 0.5  ],  // Micro E-mini DJIA
+  ['YM',  5    ],  // E-mini DJIA
+  ['MGC', 10   ],  // Micro Gold
+  ['GC',  100  ],  // Gold
+  ['MCL', 100  ],  // Micro WTI Crude Oil
+  ['CL',  1000 ],  // WTI Crude Oil
+  ['ZB',  1000 ],  // 30-Year T-Bond
+  ['ZN',  1000 ],  // 10-Year T-Note
+  ['ZF',  1000 ],  // 5-Year T-Note
+  ['ZT',  2000 ],  // 2-Year T-Note
+  ['SI',  5000 ],  // Silver
+];
+
+function resolvePointValue(symbol, tickSize, tickValue) {
+  if (symbol) {
+    const s = symbol.toUpperCase();
+    for (const [prefix, pv] of POINT_VALUES) {
+      if (s.startsWith(prefix)) return pv;
+    }
+  }
+  // Unknown contract: derive from API tick data
+  return (tickValue || 12.5) / (tickSize || 0.25);
+}
+
 // Compute realized P&L from fills using FIFO matching.
-// pointValue = tickValue / tickSize (e.g. ES = 12.5 / 0.25 = $50/pt)
 function computeRealizedTrades(fills, contracts) {
   const byContract = {};
 
