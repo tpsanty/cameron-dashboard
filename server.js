@@ -67,6 +67,10 @@ app.get('/api/dashboard', async (req, res) => {
     saveFillCache(fillCache);
     const fills = Object.values(fillCache);
 
+    // Diagnostic log — visible in Railway / server console
+    const ts = fills.map(f => f.timestamp).filter(Boolean).sort();
+    console.log(`[fills] api=${rawFills.length}+${acctFills.length}  cached=${Object.keys(fillCache).length}  range=${ts[0] || 'none'} → ${ts[ts.length - 1] || 'none'}`);
+
     // Fetch contract details for all fills
     const contractIds = [...new Set(fills.map(f => f.contractId).filter(Boolean))];
     const contracts = await client.getContractBatch(contractIds);
