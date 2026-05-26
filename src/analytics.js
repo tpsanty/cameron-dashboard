@@ -95,7 +95,7 @@ function buildStats(trades) {
   // Daily P&L map: "YYYY-MM-DD" -> pnl
   const dailyPnl = {};
   for (const t of trades) {
-    const day = t.timestamp.slice(0, 10);
+    const day = new Date(t.timestamp).toISOString().slice(0, 10);
     dailyPnl[day] = (dailyPnl[day] || 0) + t.pnl;
   }
 
