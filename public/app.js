@@ -119,20 +119,11 @@ function renderStats(s) {
 function renderCalendar(dailyPnl) {
   calData = dailyPnl || {};
 
-  // Jump to the most recent month that has trade data, capped at current month
-  const now  = new Date();
-  const keys = Object.keys(calData).sort();
-  if (keys.length) {
-    // Parse as noon local time to avoid UTC-offset date shifting
-    const latest = new Date(keys[keys.length - 1] + 'T12:00:00');
-    if (!isNaN(latest) && latest <= now) {
-      calViewYear  = latest.getFullYear();
-      calViewMonth = latest.getMonth();
-    }
-  }
-  // Clamp to current month
-  if (calViewYear > now.getFullYear() ||
-      (calViewYear === now.getFullYear() && calViewMonth > now.getMonth())) {
+  // On first load only: default to the current month.
+  // Subsequent auto-refreshes leave the view wherever the user navigated.
+  if (calFirstLoad) {
+    calFirstLoad = false;
+    const now = new Date();
     calViewYear  = now.getFullYear();
     calViewMonth = now.getMonth();
   }
