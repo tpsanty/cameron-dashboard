@@ -2,11 +2,21 @@
 
 const { Pool } = require('pg');
 
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL is not set. Link a PostgreSQL service to this Railway project.');
+}
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL && !process.env.DATABASE_URL.match(/localhost|127\.0\.0\.1/)
-    ? { rejectUnauthorized: false }
-    : false
+  ssl: process.env.DATABASE_URL.match(/localhost|127\.0\.0\.1/)
+    ? false
+    : { rejectUnauthorized: false }
+});
+
+// Without this handler Node.js crashes on idle-client errors (e.g. Railway
+// closing connections on the database side between requests).
+pool.on('error', (err) => {
+  console.error('Idle PostgreSQL client error:', err.message);
 });
 
 async function init() {
@@ -19,9 +29,10 @@ async function init() {
       price       DOUBLE PRECISION,
       timestamp   TEXT,
       raw_json    TEXT NOT NULL
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_fills_timestamp ON fills (timestamp);
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_fills_timestamp ON fills (timestamp)
   `);
 }
 
