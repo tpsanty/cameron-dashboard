@@ -19,6 +19,15 @@ let calViewMonth   = new Date().getMonth();
 let calFirstLoad   = true;  // prevents auto-refresh from resetting the user's selected month
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+// Short dollar format for calendar cells (no cents, abbreviates ≥$1k)
+function fmtCal(val) {
+  if (val === null || val === undefined) return '';
+  const n = Number(val);
+  const abs = Math.abs(n);
+  const s = abs >= 1000 ? `$${(abs / 1000).toFixed(1)}k` : `$${Math.round(abs)}`;
+  return n >= 0 ? `+${s}` : `-${s}`;
+}
+
 function fmt(val, decimals = 2) {
   if (val === null || val === undefined || val === Infinity || val === -Infinity) return '—';
   const n = Number(val);
