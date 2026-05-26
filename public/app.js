@@ -116,101 +116,142 @@ function renderStats(s) {
 
 // ── Render: Calendar ───────────────────────────────────────────────────────
 function renderCalendar(dailyPnl) {
+  calData = dailyPnl || {};
+
+  // Jump to the most recent month that has trade data, capped at current month
+  const now  = new Date();
+  const keys = Object.keys(calData).sort();
+  if (keys.length) {
+    // Parse as noon local time to avoid UTC-offset date shifting
+    const latest = new Date(keys[keys.length - 1] + 'T12:00:00');
+    if (!isNaN(latest) && latest <= now) {
+      calViewYear  = latest.getFullYear();
+      calViewMonth = latest.getMonth();
+    }
+  }
+  // Clamp to current month
+  if (calViewYear > now.getFullYear() ||
+      (calViewYear === now.getFullYear() && calViewMonth > now.getMonth())) {
+    calViewYear  = now.getFullYear();
+    calViewMonth = now.getMonth();
+  }
+
+  drawCalendarMonth();
+}
+
+function drawCalendarMonth() {
   const container = document.getElementById('calendar');
   if (!container) return;
-  container.innerHTML = '';
 
-  const today = new Date();
-  const values = Object.values(dailyPnl);
-  const maxAbs = values.length ? Math.max(...values.map(Math.abs), 1) : 1;
+  const today    = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const values   = Object.values(calData);
+  const maxAbs   = values.length ? Math.max(...values.map(Math.abs), 1) : 1;
 
-  // Build 3 months ending with this month
-  for (let offset = 2; offset >= 0; offset--) {
-    const refDate  = new Date(today.getFullYear(), today.getMonth() - offset, 1);
-    const year     = refDate.getFullYear();
-    const month    = refDate.getMonth();
-    const monthLabel = refDate.toLocaleString('default', { month: 'long', year: 'numeric' });
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const firstDow    = new Date(year, month, 1).getDay(); // 0=Sun
+  const year  = calViewYear;
+  const month = calViewMonth;
 
-    const monthWrap = document.createElement('div');
-    monthWrap.className = 'cal-month fade-in';
+  // Update month label in the nav bar
+  const label = document.getElementById('calMonthLabel');
+  if (label) {
+    label.textContent = new Date(year, month, 1)
+      .toLocaleString('default', { month: 'long', year: 'numeric' });
+  }
 
-    const title = document.createElement('div');
-    title.className = 'cal-month-title';
-    title.textContent = monthLabel;
-    monthWrap.appendChild(title);
+  // Disable "next" when already on current month
+  const nextBtn = document.getElementById('calNextBtn');
+  if (nextBtn) {
+    const atCurrent = year === today.getFullYear() && month === today.getMonth();
+    nextBtn.disabled = atCurrent;
+    nextBtn.classList.toggle('cal-nav-disabled', atCurrent);
+  }
 
-    const grid = document.createElement('div');
-    grid.className = 'cal-grid';
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDow    = new Date(year, month, 1).getDay();
 
-    // Day-of-week headers
-    ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => {
-      const h = document.createElement('div');
-      h.className = 'cal-header';
-      h.textContent = d;
-      grid.appendChild(h);
-    });
+  const grid = document.createElement('div');
+  grid.className = 'cal-grid fade-in';
 
-    // Empty leading cells
-    for (let i = 0; i < firstDow; i++) {
-      const blank = document.createElement('div');
-      blank.className = 'cal-day empty-day';
-      grid.appendChild(blank);
-    }
+  // Day-of-week headers
+  ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => {
+    const h = document.createElement('div');
+    h.className = 'cal-header';
+    h.textContent = d;
+    grid.appendChild(h);
+  });
 
-    // Day cells
-    for (let day = 1; day <= daysInMonth; day++) {
-      const mm   = String(month + 1).padStart(2, '0');
-      const dd   = String(day).padStart(2, '0');
-      const key  = `${year}-${mm}-${dd}`;
-      const pnl  = dailyPnl[key];
-      const isFuture = new Date(year, month, day) > today;
+  // Empty leading cells
+  for (let i = 0; i < firstDow; i++) {
+    const blank = document.createElement('div');
+    blank.className = 'cal-day empty-day';
+    grid.appendChild(blank);
+  }
 
-      const cell = document.createElement('div');
-      cell.className = 'cal-day' + (isFuture ? ' future' : '');
+  // Day cells
+  for (let day = 1; day <= daysInMonth; day++) {
+    const mm  = String(month + 1).padStart(2, '0');
+    const dd  = String(day).padStart(2, '0');
+    const key = `${year}-${mm}-${dd}`;
+    const pnl = calData[key];
+    const isFuture = key > todayStr;
 
-      const numSpan = document.createElement('span');
-      numSpan.className = 'cal-day-num';
-      numSpan.textContent = day;
-      cell.appendChild(numSpan);
+    const cell = document.createElement('div');
+    cell.className = 'cal-day' + (isFuture ? ' future' : '');
 
-      if (pnl !== undefined && !isFuture) {
-        const isBreakeven = Math.abs(pnl) <= BREAKEVEN_THRESHOLD;
-        const pnlSpan = document.createElement('span');
-        pnlSpan.className = 'cal-pnl';
+    const numSpan = document.createElement('span');
+    numSpan.className = 'cal-day-num';
+    numSpan.textContent = day;
+    cell.appendChild(numSpan);
 
-        if (isBreakeven) {
-          cell.style.backgroundColor = 'rgba(100, 110, 140, 0.22)';
-          cell.style.borderColor     = 'rgba(100, 110, 140, 0.38)';
-          pnlSpan.style.color        = 'var(--text-2)';
-        } else {
-          const ratio   = Math.min(Math.abs(pnl) / maxAbs, 1);
-          const alpha   = 0.18 + ratio * 0.72;
-          const isGreen = pnl > 0;
+    if (pnl !== undefined && !isFuture) {
+      const isBreakeven = Math.abs(pnl) <= BREAKEVEN_THRESHOLD;
+      const pnlSpan = document.createElement('span');
+      pnlSpan.className = 'cal-pnl';
 
-          cell.style.backgroundColor = isGreen
-            ? `rgba(0, 200, 83, ${alpha})`
-            : `rgba(255, 61, 61, ${alpha})`;
-          cell.style.borderColor = isGreen
-            ? `rgba(0, 200, 83, ${Math.min(alpha + 0.1, 0.5)})`
-            : `rgba(255, 61, 61, ${Math.min(alpha + 0.1, 0.5)})`;
-          pnlSpan.style.color = isGreen
-            ? (alpha > 0.6 ? '#ffffff' : 'var(--green)')
-            : (alpha > 0.6 ? '#ffffff' : 'var(--red)');
-        }
+      if (isBreakeven) {
+        cell.style.backgroundColor = 'rgba(100, 110, 140, 0.22)';
+        cell.style.borderColor     = 'rgba(100, 110, 140, 0.38)';
+        pnlSpan.style.color        = 'var(--text-2)';
+      } else {
+        const ratio   = Math.min(Math.abs(pnl) / maxAbs, 1);
+        const alpha   = 0.18 + ratio * 0.72;
+        const isGreen = pnl > 0;
 
-        pnlSpan.textContent = fmt(pnl);
-        cell.appendChild(pnlSpan);
-        cell.title = `${key}: ${fmt(pnl)}`;
+        cell.style.backgroundColor = isGreen
+          ? `rgba(0, 200, 83, ${alpha})`
+          : `rgba(255, 61, 61, ${alpha})`;
+        cell.style.borderColor = isGreen
+          ? `rgba(0, 200, 83, ${Math.min(alpha + 0.1, 0.5)})`
+          : `rgba(255, 61, 61, ${Math.min(alpha + 0.1, 0.5)})`;
+        pnlSpan.style.color = isGreen
+          ? (alpha > 0.6 ? '#ffffff' : 'var(--green)')
+          : (alpha > 0.6 ? '#ffffff' : 'var(--red)');
       }
 
-      grid.appendChild(cell);
+      pnlSpan.textContent = fmt(pnl);
+      cell.appendChild(pnlSpan);
+      cell.title = `${key}: ${fmt(pnl)}`;
     }
 
-    monthWrap.appendChild(grid);
-    container.appendChild(monthWrap);
+    grid.appendChild(cell);
   }
+
+  container.innerHTML = '';
+  container.appendChild(grid);
+}
+
+function calNavPrev() {
+  calViewMonth--;
+  if (calViewMonth < 0) { calViewMonth = 11; calViewYear--; }
+  drawCalendarMonth();
+}
+
+function calNavNext() {
+  const now = new Date();
+  if (calViewYear === now.getFullYear() && calViewMonth === now.getMonth()) return;
+  calViewMonth++;
+  if (calViewMonth > 11) { calViewMonth = 0; calViewYear++; }
+  drawCalendarMonth();
 }
 
 // ── Render: Charts ─────────────────────────────────────────────────────────
