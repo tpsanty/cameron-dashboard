@@ -41,17 +41,15 @@ app.get('/api/dashboard', async (req, res) => {
       try { acctFills = await client.getFillsByAccount(accounts[0].id); } catch (_) {}
     }
 
-    // Merge fresh fills with the on-disk cache so historical days survive API resets
-    const fillCache = loadFillCache();
-    [...rawFills, ...acctFills].forEach(f => {
-      if (f.id != null) fillCache[String(f.id)] = f;
-    });
-    saveFillCache(fillCache);
-    const fills = Object.values(fillCache);
+    // Persist every new fill to SQLite so history accumulates across restarts/redeploys
+    saveFills([...rawFills, ...acctFills]);
+
+    // Build the full history from the database (includes every day since first run)
+    const fills = loadFills();
 
     // Diagnostic log — visible in Railway / server console
-    const ts = fills.map(f => f.timestamp).filter(Boolean).sort();
-    console.log(`[fills] api=${rawFills.length}+${acctFills.length}  cached=${Object.keys(fillCache).length}  range=${ts[0] || 'none'} → ${ts[ts.length - 1] || 'none'}`);
+    const { oldest, newest } = fillDateRange();
+    console.log(`[fills] api=${rawFills.length}+${acctFills.length}  db=${fillCount()}  range=${oldest || 'none'} → ${newest || 'none'}`);
 
     // Fetch contract details for all fills
     const contractIds = [...new Set(fills.map(f => f.contractId).filter(Boolean))];
