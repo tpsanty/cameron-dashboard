@@ -132,14 +132,14 @@ function buildStats(trades) {
   const winRate = (wins.length / trades.length) * 100;
   const riskReward = avgLoss !== 0 ? Math.abs(avgWin / avgLoss) : 0;
 
-  // Daily P&L map: "YYYY-MM-DD" -> pnl
-  // Attribute each trade's P&L to the day it was OPENED (openTimestamp) so
-  // the calendar reflects the day you entered the trade, not the day you
-  // closed it.  Falls back to the close timestamp if openTimestamp is absent.
-  const dailyPnl = {};
+  // Daily P&L and trade count maps, keyed "YYYY-MM-DD".
+  // Attribute to the day the trade was OPENED so the calendar shows entry days.
+  const dailyPnl    = {};
+  const dailyTrades = {};
   for (const t of trades) {
     const day = new Date(t.openTimestamp || t.timestamp).toISOString().slice(0, 10);
-    dailyPnl[day] = (dailyPnl[day] || 0) + t.pnl;
+    dailyPnl[day]    = (dailyPnl[day]    || 0) + t.pnl;
+    dailyTrades[day] = (dailyTrades[day] || 0) + 1;
   }
 
   const recentTrades = [...trades]
