@@ -125,8 +125,9 @@ function renderStats(s) {
 }
 
 // ── Render: Calendar ───────────────────────────────────────────────────────
-function renderCalendar(dailyPnl) {
-  calData = dailyPnl || {};
+function renderCalendar(dailyPnl, dailyTrades) {
+  calData        = dailyPnl    || {};
+  calTradesByDay = dailyTrades || {};
 
   // On first load only: default to the current month.
   // Subsequent auto-refreshes leave the view wherever the user navigated.
