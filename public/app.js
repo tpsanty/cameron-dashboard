@@ -15,6 +15,7 @@ let isLoading = false;
 let calData      = {};
 let calViewYear  = new Date().getFullYear();
 let calViewMonth = new Date().getMonth();
+let calFirstLoad = true;  // prevents auto-refresh from resetting the user's selected month
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function fmt(val, decimals = 2) {
