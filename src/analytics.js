@@ -45,11 +45,11 @@ function computeRealizedTrades(fills, contracts) {
     if (!byContract[cid]) byContract[cid] = { queue: [], trades: [] };
     const state = byContract[cid];
 
-    const contract = contracts[cid] || {};
-    const tickSize = contract.tickSize || 0.25;
+    const contract  = contracts[cid] || {};
+    const tickSize  = contract.tickSize  || 0.25;
     const tickValue = contract.tickValue || 12.5;
-    const pointValue = tickValue / tickSize;
-    const symbol = contract.name || `Contract ${cid}`;
+    const symbol    = contract.name || `Contract ${cid}`;
+    const pointValue = resolvePointValue(symbol, tickSize, tickValue);
 
     const isBuy = fill.action === 'Buy';
     const qty = fill.qty || 1;
