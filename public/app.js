@@ -11,6 +11,11 @@ let refreshTimeout  = null;
 let countdownHandle = null;
 let isLoading = false;
 
+// Calendar navigation state
+let calData      = {};
+let calViewYear  = new Date().getFullYear();
+let calViewMonth = new Date().getMonth();
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 function fmt(val, decimals = 2) {
   if (val === null || val === undefined || val === Infinity || val === -Infinity) return '—';
