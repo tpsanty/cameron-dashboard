@@ -279,17 +279,40 @@ body {
 .leg-dot.red-dot   { background: var(--red); }
 
 .calendar-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  display: block;
 }
 
-.cal-month-title {
-  font-size: 0.8rem;
-  font-weight: 700;
+/* Calendar month navigation */
+.cal-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cal-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-2);
+  background: var(--surface-2);
   color: var(--text-2);
-  margin-bottom: 8px;
-  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  padding: 0;
+  flex-shrink: 0;
+}
+.cal-nav-btn:hover:not(:disabled) {
+  background: var(--border);
+  color: var(--text);
+  border-color: var(--border-2);
+}
+.cal-nav-btn:disabled,
+.cal-nav-btn.cal-nav-disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 .cal-grid {
