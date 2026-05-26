@@ -275,6 +275,7 @@ body {
   flex-shrink: 0;
 }
 .leg-dot.green-dot { background: var(--green); }
+.leg-dot.gray-dot  { background: #6b7280; }
 .leg-dot.red-dot   { background: var(--red); }
 
 .calendar-wrap {
