@@ -129,7 +129,7 @@ app.get('/api/debug/fills', async (req, res) => {
       try { acctFills = await client.getFillsByAccount(accounts[0].id); } catch (_) {}
     }
 
-    const { oldest, newest } = fillDateRange();
+    const [{ oldest, newest }, dbTotal] = await Promise.all([fillDateRange(), fillCount()]);
     const allIds = new Set([...rawFills.map(f => String(f.id)), ...acctFills.map(f => String(f.id))]);
     const apiTimestamps = rawFills.map(f => f.timestamp).filter(Boolean).sort();
 
@@ -139,7 +139,7 @@ app.get('/api/debug/fills', async (req, res) => {
       apiRawFills:       rawFills.length,
       apiAcctFills:      acctFills.length,
       apiUniqueFillIds:  allIds.size,
-      dbTotalFills:      fillCount(),
+      dbTotalFills:      dbTotal,
       dbOldestFill:      oldest,
       dbNewestFill:      newest,
       apiOldestFill:     apiTimestamps[0] || null,
