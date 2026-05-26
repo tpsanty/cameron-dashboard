@@ -1,28 +1,10 @@
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const fs = require('fs');
-const client = require('./src/tradovate');
+const cors    = require('cors');
+const path    = require('path');
+const client  = require('./src/tradovate');
 const { computeRealizedTrades, buildStats } = require('./src/analytics');
-
-// Persist fills across API resets so historical calendar data accumulates over time
-const FILL_CACHE_PATH = path.join(__dirname, '.fills-cache.json');
-
-function loadFillCache() {
-  try {
-    if (fs.existsSync(FILL_CACHE_PATH)) {
-      return JSON.parse(fs.readFileSync(FILL_CACHE_PATH, 'utf8'));
-    }
-  } catch (_) {}
-  return {};
-}
-
-function saveFillCache(fillsById) {
-  try {
-    fs.writeFileSync(FILL_CACHE_PATH, JSON.stringify(fillsById));
-  } catch (_) {}
-}
+const { saveFills, loadFills, fillCount, fillDateRange } = require('./src/db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
