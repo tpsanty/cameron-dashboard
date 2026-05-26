@@ -4,7 +4,7 @@ const cors    = require('cors');
 const path    = require('path');
 const client  = require('./src/tradovate');
 const { computeRealizedTrades, buildStats } = require('./src/analytics');
-const { saveFills, loadFills, fillCount, fillDateRange } = require('./src/db');
+const { init, saveFills, loadFills, fillCount, fillDateRange } = require('./src/db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
