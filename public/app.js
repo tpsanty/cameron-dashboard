@@ -2,6 +2,7 @@
 
 // ── Config ─────────────────────────────────────────────────────────────────
 const REFRESH_INTERVAL = 60; // seconds
+const BREAKEVEN_THRESHOLD = 10; // trades within ±$10 are counted as breakeven
 
 // ── State ──────────────────────────────────────────────────────────────────
 let winLossChart = null;
