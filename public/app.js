@@ -171,25 +171,32 @@ function renderCalendar(dailyPnl) {
       cell.appendChild(numSpan);
 
       if (pnl !== undefined && !isFuture) {
-        const ratio   = Math.min(Math.abs(pnl) / maxAbs, 1);
-        const alpha   = 0.18 + ratio * 0.72;
-        const isGreen = pnl >= 0;
-
-        cell.style.backgroundColor = isGreen
-          ? `rgba(0, 200, 83, ${alpha})`
-          : `rgba(255, 61, 61, ${alpha})`;
-        cell.style.borderColor = isGreen
-          ? `rgba(0, 200, 83, ${Math.min(alpha + 0.1, 0.5)})`
-          : `rgba(255, 61, 61, ${Math.min(alpha + 0.1, 0.5)})`;
-
+        const isBreakeven = Math.abs(pnl) <= BREAKEVEN_THRESHOLD;
         const pnlSpan = document.createElement('span');
         pnlSpan.className = 'cal-pnl';
-        pnlSpan.style.color = isGreen
-          ? (alpha > 0.6 ? '#ffffff' : 'var(--green)')
-          : (alpha > 0.6 ? '#ffffff' : 'var(--red)');
+
+        if (isBreakeven) {
+          cell.style.backgroundColor = 'rgba(100, 110, 140, 0.22)';
+          cell.style.borderColor     = 'rgba(100, 110, 140, 0.38)';
+          pnlSpan.style.color        = 'var(--text-2)';
+        } else {
+          const ratio   = Math.min(Math.abs(pnl) / maxAbs, 1);
+          const alpha   = 0.18 + ratio * 0.72;
+          const isGreen = pnl > 0;
+
+          cell.style.backgroundColor = isGreen
+            ? `rgba(0, 200, 83, ${alpha})`
+            : `rgba(255, 61, 61, ${alpha})`;
+          cell.style.borderColor = isGreen
+            ? `rgba(0, 200, 83, ${Math.min(alpha + 0.1, 0.5)})`
+            : `rgba(255, 61, 61, ${Math.min(alpha + 0.1, 0.5)})`;
+          pnlSpan.style.color = isGreen
+            ? (alpha > 0.6 ? '#ffffff' : 'var(--green)')
+            : (alpha > 0.6 ? '#ffffff' : 'var(--red)');
+        }
+
         pnlSpan.textContent = fmt(pnl);
         cell.appendChild(pnlSpan);
-
         cell.title = `${key}: ${fmt(pnl)}`;
       }
 
