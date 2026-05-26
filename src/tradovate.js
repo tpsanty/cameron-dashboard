@@ -107,6 +107,10 @@ class TradovateClient {
     return this.get('/fill/list');
   }
 
+  async getFillsByAccount(accountId) {
+    return this.get('/fill/ldeps', { masterid: accountId });
+  }
+
   async getOrders() {
     return this.get('/order/list');
   }
