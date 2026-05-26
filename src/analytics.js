@@ -163,6 +163,7 @@ function buildStats(trades) {
     worstTrade: Math.round(worstTrade * 100) / 100,
     riskReward: Math.round(riskReward * 100) / 100,
     dailyPnl,
+    dailyTrades,
     recentTrades
   };
 }
