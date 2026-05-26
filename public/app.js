@@ -108,7 +108,6 @@ function startCountdown() {
 function renderStats(s) {
   setEl('statTotalPnl',    fmt(s.totalPnl),     colorClass(s.totalPnl));
   setEl('statWinRate',     pct(s.winRate),       s.winRate >= 50 ? 'green' : s.winRate > 0 ? 'neutral' : 'red');
-  setEl('statRR',          s.riskReward ? `${s.riskReward}:1` : '—', s.riskReward >= 1 ? 'green' : s.riskReward > 0 ? 'red' : 'muted');
   setEl('statTotalTrades', s.totalTrades || 0,  'neutral');
   setEl('statBest',        fmt(s.bestTrade),     colorClass(s.bestTrade));
   setEl('statWorst',       fmt(s.worstTrade),    colorClass(s.worstTrade));
