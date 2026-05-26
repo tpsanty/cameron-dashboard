@@ -41,15 +41,15 @@ app.get('/api/dashboard', async (req, res) => {
       try { acctFills = await client.getFillsByAccount(accounts[0].id); } catch (_) {}
     }
 
-    // Persist every new fill to SQLite so history accumulates across restarts/redeploys
-    saveFills([...rawFills, ...acctFills]);
+    // Persist every new fill to PostgreSQL so history accumulates across restarts/redeploys
+    await saveFills([...rawFills, ...acctFills]);
 
     // Build the full history from the database (includes every day since first run)
-    const fills = loadFills();
+    const fills = await loadFills();
 
     // Diagnostic log — visible in Railway / server console
-    const { oldest, newest } = fillDateRange();
-    console.log(`[fills] api=${rawFills.length}+${acctFills.length}  db=${fillCount()}  range=${oldest || 'none'} → ${newest || 'none'}`);
+    const [{ oldest, newest }, count] = await Promise.all([fillDateRange(), fillCount()]);
+    console.log(`[fills] api=${rawFills.length}+${acctFills.length}  db=${count}  range=${oldest || 'none'} → ${newest || 'none'}`);
 
     // Fetch contract details for all fills
     const contractIds = [...new Set(fills.map(f => f.contractId).filter(Boolean))];
