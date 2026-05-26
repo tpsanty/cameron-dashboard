@@ -151,10 +151,10 @@ app.get('/api/debug/fills', async (req, res) => {
   }
 });
 
-// Calendar data endpoint
+// Calendar data endpoint (uses the full DB history, same as /api/dashboard)
 app.get('/api/calendar', async (req, res) => {
   try {
-    const fills = await client.getFills();
+    const fills = loadFills();
     const contractIds = [...new Set(fills.map(f => f.contractId).filter(Boolean))];
     await client.getContractBatch(contractIds);
     const contracts = client.contractCache;
