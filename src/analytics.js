@@ -79,9 +79,10 @@ function buildStats(trades) {
     };
   }
 
-  const wins = trades.filter(t => t.pnl > 0);
-  const losses = trades.filter(t => t.pnl < 0);
-  const breakeven = trades.filter(t => t.pnl === 0);
+  const BREAKEVEN_THRESHOLD = 10;
+  const wins = trades.filter(t => t.pnl > BREAKEVEN_THRESHOLD);
+  const losses = trades.filter(t => t.pnl < -BREAKEVEN_THRESHOLD);
+  const breakeven = trades.filter(t => Math.abs(t.pnl) <= BREAKEVEN_THRESHOLD);
 
   const totalPnl = trades.reduce((s, t) => s + t.pnl, 0);
   const avgWin = wins.length ? wins.reduce((s, t) => s + t.pnl, 0) / wins.length : 0;
