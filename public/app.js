@@ -480,7 +480,7 @@ async function fetchDashboard() {
     hideError();
 
     renderStats(data.stats);
-    renderCalendar(data.stats.dailyPnl || {});
+    renderCalendar(data.stats.dailyPnl || {}, data.stats.dailyTrades || {});
     renderWinLossChart(data.stats);
     renderPnlChart(data.stats.dailyPnl || {});
     renderPositions(data.openPositions || []);
