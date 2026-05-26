@@ -131,6 +131,40 @@ app.get('/api/dashboard', async (req, res) => {
   }
 });
 
+// Debug endpoint — shows exactly what fills Tradovate is returning
+// Visit /api/debug/fills in the browser to diagnose missing historical days
+app.get('/api/debug/fills', async (req, res) => {
+  try {
+    const [accounts, rawFills] = await Promise.all([
+      client.getAccounts(),
+      client.getFills()
+    ]);
+
+    let acctFills = [];
+    if (accounts.length > 0) {
+      try { acctFills = await client.getFillsByAccount(accounts[0].id); } catch (_) {}
+    }
+
+    const fillCache  = loadFillCache();
+    const allIds     = new Set([...rawFills.map(f => String(f.id)), ...acctFills.map(f => String(f.id))]);
+    const timestamps = rawFills.map(f => f.timestamp).filter(Boolean).sort();
+
+    res.json({
+      env:              process.env.TRADOVATE_ENV || 'demo',
+      account:          accounts[0]?.name || null,
+      rawFillCount:     rawFills.length,
+      acctFillCount:    acctFills.length,
+      uniqueFillIds:    allIds.size,
+      cachedFillCount:  Object.keys(fillCache).length,
+      oldestRawFill:    timestamps[0]    || null,
+      newestRawFill:    timestamps[timestamps.length - 1] || null,
+      sampleFills:      rawFills.slice(0, 5)
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Calendar data endpoint
 app.get('/api/calendar', async (req, res) => {
   try {
