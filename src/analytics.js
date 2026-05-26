@@ -56,12 +56,16 @@ function computeRealizedTrades(fills, contracts) {
     const price = fill.price;
 
     if (state.queue.length === 0 || (state.queue[0].long === isBuy)) {
-      // Adding to or opening position
-      state.queue.push({ price, qty, long: isBuy });
+      // Opening or adding to position — store the fill timestamp so we can
+      // attribute P&L to the day the trade was ENTERED, not the day it closed.
+      state.queue.push({ price, qty, long: isBuy, timestamp: fill.timestamp });
     } else {
       // Closing position
       let remaining = qty;
       let tradePnl = 0;
+
+      // Capture the oldest (FIFO) entry's open date before we consume the queue
+      const openTimestamp = state.queue[0].timestamp || fill.timestamp;
 
       while (remaining > 0 && state.queue.length > 0) {
         const entry = state.queue[0];
@@ -74,7 +78,8 @@ function computeRealizedTrades(fills, contracts) {
       }
 
       state.trades.push({
-        timestamp: fill.timestamp,
+        timestamp: fill.timestamp,   // close time — shown in the Recent Trades table
+        openTimestamp,               // open time — used for calendar day attribution
         symbol,
         contractId: cid,
         pnl: tradePnl,
@@ -82,7 +87,7 @@ function computeRealizedTrades(fills, contracts) {
       });
 
       if (remaining > 0) {
-        state.queue.push({ price, qty: remaining, long: isBuy });
+        state.queue.push({ price, qty: remaining, long: isBuy, timestamp: fill.timestamp });
       }
     }
   }
