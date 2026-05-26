@@ -12,10 +12,11 @@ let countdownHandle = null;
 let isLoading = false;
 
 // Calendar navigation state
-let calData      = {};
-let calViewYear  = new Date().getFullYear();
-let calViewMonth = new Date().getMonth();
-let calFirstLoad = true;  // prevents auto-refresh from resetting the user's selected month
+let calData        = {};
+let calTradesByDay = {};
+let calViewYear    = new Date().getFullYear();
+let calViewMonth   = new Date().getMonth();
+let calFirstLoad   = true;  // prevents auto-refresh from resetting the user's selected month
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function fmt(val, decimals = 2) {
